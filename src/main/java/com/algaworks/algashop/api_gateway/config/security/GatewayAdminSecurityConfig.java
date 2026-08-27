@@ -10,7 +10,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 
 @Configuration
 @EnableReactiveMethodSecurity // habilita o pre authorize nos endpoints
-public class GatewayEcommerceSecurityConfig {
+public class GatewayAdminSecurityConfig {
 
     // valida os tokens de authorization server dentro de gateway, usamos o gateway como resource para tratar isso
 
@@ -20,9 +20,7 @@ public class GatewayEcommerceSecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(authorize -> authorize
                         .pathMatchers("/actuator/**").permitAll()
-                        // habilita o envio de options via navegador e evita bloqueio de requisicao
                         .pathMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
-                        .pathMatchers("/api/v1/webhooks/**").permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().denyAll()
                 )

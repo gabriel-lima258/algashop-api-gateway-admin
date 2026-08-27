@@ -1,31 +1,20 @@
 server:
-  port: 9999
+  port: 9998
 
 logging:
   level:
     org.springframework.cloud.gateway: TRACE
     reactor.netty.http.client: DEBUG
 
-# cloud.gateway.server.webflux.routes são configs de roteamento do gateway com os outros serviços
-# aceita uri externa e interna, posso redicionar até pro google
-# como billing e ordering usa partes do endpoints igual customers, devemos priorizar quem tem ordem, logo billing vem primeiro
-# pois ele é mais especifico, sem isso toda requisição feita em billing cai no ordering
-
-# RewritePath=/public/products(?<segment>/?.*), /api/v1/products$\{segment}
-# redireciona qualquer rota /products para o path correto, temos diversos filters interresantes
-
-# usamos lb:// para identificar como load balance e passamos o nome do serviço registrado no service registry em uri
-# assim não precisamos passar o path completo http://serviço:0000
-# DedupeResponseHeader remove duplicacoes de headers e RETAIN_FIRST prioriza configs de gateway ao inves do serviço
 spring:
   application:
-    name: api-gateway
+    name: api-gateway-admin
   data:
     redis: # conexão usada pelo RequestRateLimiter (contadores do token bucket)
       host: algashop-redis
       port: 6379
       password: algashop
-      database: 3
+      database: 4 # db separado do gateway ecommerce (3) para nao compartilhar os buckets de rate limit
   security:
     oauth2:
       resourceserver:
@@ -67,20 +56,18 @@ spring:
                   - DELETE
                   - OPTIONS
           routes:
+            # invoice pertence ao billing, nao ao ordering - precisa vir antes
+            # de ordering-route (mais especifico primeiro), senao /api/v1/orders/**
+            # captura a requisicao e manda para o servico errado
             - id: billing-route
               uri: lb://billing
               predicates:
-                - Path=/api/v1/customers/me/orders/{orderId}/invoice,/api/v1/orders/{orderId}/invoice,/api/v1/customers/me/credit-cards/**
-            # webhook publico chamado pelo Fastpay, sem token - liberado no security do gateway
-            - id: billing-webhook-route
-              uri: lb://billing
-              predicates:
-                - Path=/api/v1/webhooks/fastpay
-                - Method=POST
+                - Path=/api/v1/orders/{orderId}/invoice
+                - Method=GET,OPTIONS
             - id: ordering-route
               uri: lb://ordering
-              predicates: # redireciona para uri
-                - Path=/api/v1/orders/**,/api/v1/customers/**,/api/v1/shipping-cost-previews
+              predicates:
+                - Path=/api/v1/orders/**
               filters: # route circuit breaker resilience
                 - name: CircuitBreaker
                   args:
@@ -89,6 +76,11 @@ spring:
                       - 502
                       - 504
                       - 500
+            - id: customer-route
+              uri: lb://ordering
+              predicates:
+                - Path=/api/v1/customers/**
+                - Method=GET,OPTIONS
             - id: product-catalog-route
               uri: lb://product-catalog
               predicates:
