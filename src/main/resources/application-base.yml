@@ -1,3 +1,7 @@
+# Configurações estáveis, que não variam entre ambientes: nome da aplicação, rotas,
+# resiliência, actuator e logging. O que varia por ambiente (Redis, CORS, timeouts,
+# OAuth2 e Eureka) fica nos arquivos *-env.
+
 server:
   port: 9998
 
@@ -9,17 +13,6 @@ logging:
 spring:
   application:
     name: api-gateway-admin
-  data:
-    redis: # conexão usada pelo RequestRateLimiter (contadores do token bucket)
-      host: algashop-redis
-      port: 6379
-      password: algashop
-      database: 4 # db separado do gateway ecommerce (3) para nao compartilhar os buckets de rate limit
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://auth.algashop.local:9000
   cloud:
     gateway:
       server:
@@ -40,14 +33,10 @@ spring:
                 backoff:
                   firstBackoff: 10ms # primeira tentativa
                   maxBackoff: 20ms # ultima tentativa
-          httpclient: # global timeout resilience
-            connect-timeout: 1000
-            response-timeout: 5000
-          globalcors: # cors global para todas as rotas
+          globalcors: # cors global para todas as rotas (a origem permitida vem dos arquivos *-env)
             add-to-simple-url-handler-mapping: true
             cors-configurations:
               '[/**]':
-                allowedOrigins: http://admin.algashop.local:4200
                 allowedHeaders: '*'
                 allowedMethods:
                   - GET
@@ -81,13 +70,28 @@ spring:
               predicates:
                 - Path=/api/v1/customers/**
                 - Method=GET,OPTIONS
+            - id: product-catalog-list-route
+              uri: lb://product-catalog
+              predicates:
+                - Path=/api/v1/products
+                - Method=GET
+              filters:
+                - RemoveJsonAttributesResponseBody=shortDescription,mainImage,true # remove campos desnecessarios
+                # esta rota vem ANTES da product-catalog-route (primeira que casa vence),
+                # entao precisa do proprio rate limit - sem ele, a listagem escaparia do limite
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter:
+                      replenishRate: 50
+                      burstCapacity: 200
+                      requestedTokens: 1
+                    key-resolver: "#{@rateLimitKeyResolver}"
             - id: product-catalog-route
               uri: lb://product-catalog
               predicates:
-                - Path=/api/v1/products/**,/api/v1/categories/**,/api/v1/upload-requests/**
+                - Path=/api/v1/products,/api/v1/products/**,/api/v1/categories/**,/api/v1/upload-requests/**
                 - Method=GET,POST,PUT,DELETE,OPTIONS
               filters:
-                - LocalResponseCache=5m,30MB # local cache resilience (GET)
                 - name: RequestRateLimiter # rate limit (token bucket no Redis), estoura = 429
                   args:
                     redis-rate-limiter:
@@ -103,8 +107,6 @@ spring:
 
 eureka:
   client:
-    serviceUrl:
-      defaultZone: http://algashop-service-registry:8761/eureka
     registerWithEureka: false # não se registra como client
     fetchRegistry: true # busca os serviços dentro eureka
 
@@ -129,4 +131,3 @@ resilience4j.circuitbreaker:
       waitDurationInOpenState: 10s # tempo de circuito aberto
       maxWaitDurationInHalfOpenState: 30s # tempo meio aberto após o aberto
       registerHealthIndicator: true # indicador de saúde do circuto
-
