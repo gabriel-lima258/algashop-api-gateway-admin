@@ -120,14 +120,19 @@ management:
       enabled: true
 
 # circuit breaker configs customizado
-resilience4j.circuitbreaker:
-  instances:
-    ordering-route-cb:
-      slidingWindowSize: 8 # maximo de chamadas
-      failureRateThreshold: 50 # abre o circuito
-      minimumNumberOfCalls: 5 # minimo de chamadas para abrir
-      permittedNumberOfCallsInHalfOpenState: 5 # chamadas permitidas em meio aberto, se sucesso fecha o circuit
-      slidingWindowType: COUNT_BASED
-      waitDurationInOpenState: 10s # tempo de circuito aberto
-      maxWaitDurationInHalfOpenState: 30s # tempo meio aberto após o aberto
-      registerHealthIndicator: true # indicador de saúde do circuto
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 60s
+  circuitbreaker:
+    instances:
+      ordering-route-cb:
+        slidingWindowSize: 8 # maximo de chamadas
+        failureRateThreshold: 50 # abre o circuito
+        minimumNumberOfCalls: 5 # minimo de chamadas para abrir
+        permittedNumberOfCallsInHalfOpenState: 5 # chamadas permitidas em meio aberto, se sucesso fecha o circuit
+        slidingWindowType: COUNT_BASED
+        waitDurationInOpenState: 10s # tempo de circuito aberto
+        maxWaitDurationInHalfOpenState: 30s # tempo meio aberto após o aberto
+        registerHealthIndicator: true # indicador de saúde do circuto
