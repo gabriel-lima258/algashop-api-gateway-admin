@@ -104,14 +104,14 @@ spring:
               predicates:
                 - Path=/api/v1/users/**
                 - Method=GET,POST,PUT,DELETE,OPTIONS
-            # metricas de vendas do ordering: so leitura (GET + OPTIONS do preflight de CORS do painel admin).
-            # Path exato e nao /api/v1/metrics/**: cada servico expoe as suas metricas no mesmo prefixo
-            # (o billing tera /api/v1/metrics/payments-overview), entao cada uma precisa de rota propria.
-            # O gateway so exige autenticacao; o escopo metrics:read e o papel MANAGER sao conferidos no ordering.
+            # metricas do ordering (vendas por mes e totais): so leitura (GET + OPTIONS do preflight de CORS).
+            # Caminhos exatos, separados por virgula, e nao /api/v1/metrics/**: cada servico expoe as suas
+            # metricas no mesmo prefixo (o billing tera /api/v1/metrics/payments-overview).
+            # O gateway so exige autenticacao; o escopo metrics:read e a regra de papel ficam no ordering.
             - id: orders-metrics-route
               uri: lb://ordering
               predicates:
-                - Path=/api/v1/metrics/sales-overview
+                - Path=/api/v1/metrics/sales-overview,/api/v1/metrics/total-overview
                 - Method=GET,OPTIONS
             # notifications: lb:// + o spring.application.name ("notifications") - o gateway acha o endereco no Eureka.
             # Os metodos sao os do contrato (docs/openapi/notifications.yml); o OPTIONS e o preflight de CORS do painel admin.
