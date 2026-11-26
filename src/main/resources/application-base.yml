@@ -133,6 +133,15 @@ spring:
                 # a raiz e tudo abaixo dela: sem o /** o GET/PUT/DELETE de /{id} nao casaria
                 - Path=/api/v1/email-templates,/api/v1/email-templates/**
                 - Method=GET,POST,PUT,DELETE,OPTIONS
+            # insights: relatorios que cruzam servicos. So leitura (GET + OPTIONS do preflight de CORS):
+            # um metodo fora do contrato nao casa a rota e o gateway responde 404.
+            # A raiz e tudo abaixo dela: sem o /api/v1/insights, so o /** nao casaria a raiz.
+            # O gateway so exige autenticacao; o escopo metrics:read e o papel ficam no insights.
+            - id: insights-route
+              uri: lb://insights
+              predicates:
+                - Path=/api/v1/insights,/api/v1/insights/**
+                - Method=GET,OPTIONS
 
 eureka:
   client:
